@@ -1,8 +1,11 @@
 package org.jenkinsci.plugins.DependencyCheck;
 
+import java.net.URL;
+
 import org.jenkinsci.plugins.DependencyCheck.threadfix.ThreadFixClient;
 import org.kohsuke.stapler.QueryParameter;
 
+import hudson.Extension;
 import hudson.model.AbstractProject;
 import hudson.plugins.analysis.core.PluginDescriptor;
 import hudson.util.FormValidation;
@@ -15,6 +18,7 @@ import hudson.util.FormValidation;
  * @author Emilio Escobar <eescobar@gmail.com>
  *
  */
+@Extension(ordinal = 100)
 public final class DependencyCheckThreadFixDescriptor extends PluginDescriptor {
     //note: if the artifactId in pom.xml changes, the ICONS_PREFIX and PLUGIN_ID also need to change
 
@@ -85,6 +89,20 @@ public final class DependencyCheckThreadFixDescriptor extends PluginDescriptor {
     }
     
     //FormValidations
+    public FormValidation doCheckThreadFixUrl(@QueryParameter("threadFixUrl")String threadFixUrl) {
+    	try {
+    		new URL(threadFixUrl);
+    		this.threadFixUrl = threadFixUrl;
+    		return FormValidation.ok();
+    	} catch (Exception ex) {
+    		return FormValidation.error("Invalid ThreadFix URL: " + ex.getMessage());
+    	}
+    }
+    
+    public FormValidation doCheckThreadFixAPIKey(@QueryParameter("threadFixAPIKey") String threadFixAPIKey) {
+    	this.threadFixAPIKey = threadFixAPIKey;
+    	return FormValidation.ok();
+    }
     
     public FormValidation doTestThreadFixConnection(@QueryParameter("threadFixUrl") String threadFixUrl,
     												@QueryParameter("threadFixAPIKey") String threadFixAPIKey){

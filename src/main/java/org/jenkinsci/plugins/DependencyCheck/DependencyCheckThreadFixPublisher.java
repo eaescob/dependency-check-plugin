@@ -7,12 +7,17 @@ import org.jenkinsci.plugins.DependencyCheck.parser.ReportParser;
 import org.jenkinsci.plugins.DependencyCheck.parser.Warning;
 import org.jenkinsci.plugins.DependencyCheck.threadfix.ThreadFixClient;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.kohsuke.stapler.DataBoundSetter;
 
+import hudson.FilePath;
 import hudson.Launcher;
 import hudson.matrix.MatrixAggregator;
 import hudson.matrix.MatrixBuild;
+import hudson.model.AbstractProject;
+import hudson.model.Action;
 import hudson.model.BuildListener;
-import hudson.model.AbstractBuild;
+import hudson.model.Result;
+import hudson.model.Run;
 import hudson.plugins.analysis.core.FilesParser;
 import hudson.plugins.analysis.core.HealthAwarePublisher;
 import hudson.plugins.analysis.core.BuildResult;
@@ -73,8 +78,9 @@ public class DependencyCheckThreadFixPublisher extends HealthAwarePublisher {
      * @param pattern                   Ant file-set pattern to scan for Dependency-Check report files
      * @param threadFixAppId          Name of application inside of ThreadFix
      */
-    @SuppressWarnings("PMD.ExcessiveParameterList")
+    @SuppressWarnings({ "PMD.ExcessiveParameterList", "deprecation" })
     @DataBoundConstructor
+    @Deprecated
 	public DependencyCheckThreadFixPublisher(String healthy, String unHealthy,
 			String thresholdLimit, String defaultEncoding,
 			boolean useDeltaValues, String unstableTotalAll,
@@ -110,12 +116,39 @@ public class DependencyCheckThreadFixPublisher extends HealthAwarePublisher {
     }
     
     /**
+     * Sets the ant file-set pattern of files to work with
+     * 
+     * @param pattern - Ant file-set pattern
+     */
+    @DataBoundSetter
+    public void setPattern(String pattern) {
+    	this.pattern = pattern;
+    }
+    
+    
+    /**
      * Returns the threadFixAppId of the application.
      * 
      * @return threadFixAppId
      */
     public String getThreadFixAppId() {
     	return threadFixAppId;
+    }
+    
+    /**
+     * Sets the threadFix App ID for the Jenkins Project
+     * 
+     * @param threadFixAppId - Application ID
+     * 
+     */
+    @DataBoundSetter
+    public void setThreadFixAppId(String threadFixAppId) {
+    	this.threadFixAppId = threadFixAppId;
+    }
+    
+    @Override
+    public Action getProjectAction(final AbstractProject<?, ?> project) {
+        return new DependencyCheckProjectAction(project);
     }
     
     @Override
@@ -125,24 +158,31 @@ public class DependencyCheckThreadFixPublisher extends HealthAwarePublisher {
 
 	public MatrixAggregator createAggregator(MatrixBuild build, Launcher launcher,
 			BuildListener listener) {
-		return new DependencyCheckAnnotationsAggregator(build, launcher, listener, this, getDefaultEncoding(), useOnlyStableBuildsAsReference());
+		return new DependencyCheckAnnotationsAggregator(build, launcher, listener, this, getDefaultEncoding(), usePreviousBuildAsReference(), useOnlyStableBuildsAsReference());
 	}
 
+	@SuppressWarnings("deprecation")
 	@Override
-	protected BuildResult perform(AbstractBuild<?, ?> build, PluginLogger logger)
+	protected BuildResult perform(Run<?, ?> build, final FilePath workspace, final PluginLogger logger)
 			throws InterruptedException, IOException {
         logger.log("Collecting Dependency-Check analysis files...");
         FilesParser dcCollector = new FilesParser(DependencyCheckPlugin.PLUGIN_NAME, StringUtils.defaultIfEmpty(getPattern(), DEFAULT_PATTERN),
                 new ReportParser(getDefaultEncoding()), shouldDetectModules(), isMavenBuild(build));
-        ParserResult project = build.getWorkspace().act(dcCollector);
-        DependencyCheckResult result = new DependencyCheckResult(build, getDefaultEncoding(), project, useOnlyStableBuildsAsReference());
-        build.getActions().add(new DependencyCheckResultAction(build, this, result));
+        ParserResult project = workspace.act(dcCollector);
+        DependencyCheckResult result = new DependencyCheckResult(build, getDefaultEncoding(), project, usePreviousBuildAsReference(), 
+        		useOnlyStableBuildsAsReference());
+        
+        build.addAction(new DependencyCheckResultAction(build, this, result));
         ThreadFixClient threadFixClient = new ThreadFixClient(getDescriptor());
         
+        logger.log("Submitting result analysis to ThreadFix");
         for(FileAnnotation annotation : result.getAnnotations()) {
         	if (annotation instanceof Warning) {
         		Warning w = (Warning) annotation;
-        		threadFixClient.submitWarning(threadFixAppId, w);
+        		if (!threadFixClient.submitWarning(threadFixAppId, w)) {
+        			logger.log("Failed to send request to ThreadFix");
+        			result.setResult(Result.UNSTABLE);
+        		}
         	}
         }
 	
