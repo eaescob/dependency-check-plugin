@@ -17,7 +17,7 @@
     <artifactId>dependency-check-jenkins-plugin</artifactId>
 
     <name>OWASP Dependency-Check Plugin</name>
-    <version>1.2.4.1-SNAPSHOT</version>
+    <version>1.2.4.2-SNAPSHOT</version>
     <packaging>hpi</packaging>
     <inceptionYear>2012</inceptionYear>
     <organization>
@@ -101,6 +101,11 @@
             <groupId>org.jenkins-ci.main</groupId>
             <artifactId>maven-plugin</artifactId>
             <version>${project.parent.version}</version>
+        </dependency>
+        <dependency>
+        	<groupId>org.apache.httpcomponents</groupId>
+        	<artifactId>httpclient</artifactId>
+        	<version>4.5.1</version>
         </dependency>
     </dependencies>
 
