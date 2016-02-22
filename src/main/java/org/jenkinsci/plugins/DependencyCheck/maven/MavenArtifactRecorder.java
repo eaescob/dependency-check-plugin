@@ -29,7 +29,10 @@ import java.io.IOException;
 
 /**
  * The MavenArtifactRecorder saves the artifacts used in a Maven build to JSON format.
+ *
+ * @deprecated will be removed in a future version
  */
+@Deprecated
 public class MavenArtifactRecorder extends MavenReporter {
 
     private static final long serialVersionUID = 2861843894200530783L;
@@ -44,12 +47,12 @@ public class MavenArtifactRecorder extends MavenReporter {
                     build.getArtifactsDir().mkdirs();
                 }
 
-                StringBuilder sb = new StringBuilder();
+                final StringBuilder sb = new StringBuilder();
                 for (Artifact artifact: pom.getArtifacts()) {
                     sb.append(artifact.getFile().getAbsolutePath()).append("\n");
                 }
 
-                FilePath artifacts = new FilePath(build.getArtifactsDir(), "artifacts.txt");
+                final FilePath artifacts = new FilePath(build.getArtifactsDir(), "artifacts.txt");
                 artifacts.write(sb.toString(), "UTF-8");
             } catch (Exception ex) {
                 ex.printStackTrace();

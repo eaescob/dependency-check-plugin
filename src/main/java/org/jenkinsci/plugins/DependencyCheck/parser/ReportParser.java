@@ -60,13 +60,13 @@ public class ReportParser extends AbstractAnnotationParser {
     public Collection<FileAnnotation> parse(final InputStream file, final String moduleName) throws InvocationTargetException {
         try {
             // Parse dependency-check-report.xml files compatible with DependencyCheck.xsd v.1.1
-            Digester digester = new Digester();
+            final Digester digester = new Digester();
             digester.setValidating(false);
             digester.setClassLoader(ReportParser.class.getClassLoader());
 
             digester.addObjectCreate("analysis", Analysis.class);
 
-            String depXpath = "analysis/dependencies/dependency";
+            final String depXpath = "analysis/dependencies/dependency";
             digester.addObjectCreate(depXpath, Dependency.class);
             digester.addBeanPropertySetter(depXpath + "/fileName");
             digester.addBeanPropertySetter(depXpath + "/filePath");
@@ -75,24 +75,55 @@ public class ReportParser extends AbstractAnnotationParser {
             digester.addBeanPropertySetter(depXpath + "/description");
             digester.addBeanPropertySetter(depXpath + "/license");
 
-            String vulnXpath = "analysis/dependencies/dependency/vulnerabilities/vulnerability";
+            final String identXpath = "analysis/dependencies/dependency/identifiers/identifier";
+            digester.addObjectCreate(identXpath, org.owasp.dependencycheck.dependency.Identifier.class);
+            digester.addBeanPropertySetter(identXpath + "/name", "value");
+            digester.addBeanPropertySetter(identXpath + "/url");
+
+            final String vulnXpath = "analysis/dependencies/dependency/vulnerabilities/vulnerability";
             digester.addObjectCreate(vulnXpath, Vulnerability.class);
             digester.addBeanPropertySetter(vulnXpath + "/name");
             digester.addBeanPropertySetter(vulnXpath + "/cvssScore");
+            digester.addBeanPropertySetter(vulnXpath + "/cvssAccessVector");
+            digester.addBeanPropertySetter(vulnXpath + "/cvssAccessComplexity");
+            digester.addBeanPropertySetter(vulnXpath + "/cvssConfidentialImpact", "cvssConfidentialityImpact");
+            digester.addBeanPropertySetter(vulnXpath + "/cvssIntegrityImpact");
+            digester.addBeanPropertySetter(vulnXpath + "/cvssAvailabilityImpact");
             digester.addBeanPropertySetter(vulnXpath + "/cwe");
             digester.addBeanPropertySetter(vulnXpath + "/description");
 
-            String refXpath = "analysis/dependencies/dependency/vulnerabilities/vulnerability/references/reference";
+            final String refXpath = "analysis/dependencies/dependency/vulnerabilities/vulnerability/references/reference";
             digester.addObjectCreate(refXpath, Reference.class);
             digester.addBeanPropertySetter(refXpath + "/source");
             digester.addBeanPropertySetter(refXpath + "/url");
             digester.addBeanPropertySetter(refXpath + "/name");
 
+            final String suppressedVulnXpath = "analysis/dependencies/dependency/vulnerabilities/suppressedVulnerability";
+            digester.addObjectCreate(suppressedVulnXpath, Vulnerability.class);
+            digester.addBeanPropertySetter(suppressedVulnXpath + "/name");
+            digester.addBeanPropertySetter(suppressedVulnXpath + "/cvssScore");
+            digester.addBeanPropertySetter(suppressedVulnXpath + "/cvssAccessVector");
+            digester.addBeanPropertySetter(suppressedVulnXpath + "/cvssAccessComplexity");
+            digester.addBeanPropertySetter(suppressedVulnXpath + "/cvssConfidentialImpact");
+            digester.addBeanPropertySetter(suppressedVulnXpath + "/cvssIntegrityImpact");
+            digester.addBeanPropertySetter(suppressedVulnXpath + "/cvssAvailabilityImpact");
+            digester.addBeanPropertySetter(suppressedVulnXpath + "/cwe");
+            digester.addBeanPropertySetter(suppressedVulnXpath + "/description");
+
+            final String suppressedRefXpath = "analysis/dependencies/dependency/vulnerabilities/suppressedVulnerability/references/reference";
+            digester.addObjectCreate(suppressedRefXpath, Reference.class);
+            digester.addBeanPropertySetter(suppressedRefXpath + "/source");
+            digester.addBeanPropertySetter(suppressedRefXpath + "/url");
+            digester.addBeanPropertySetter(suppressedRefXpath + "/name");
+
+            digester.addSetNext(suppressedRefXpath, "addReference");
+            digester.addSetNext(suppressedVulnXpath, "addSuppressedVulnerability");
             digester.addSetNext(refXpath, "addReference");
+            digester.addSetNext(identXpath, "addIdentifier");
             digester.addSetNext(vulnXpath, "addVulnerability");
             digester.addSetNext(depXpath, "addDependency");
 
-            Analysis module = (Analysis) digester.parse(file);
+            final Analysis module = (Analysis) digester.parse(file);
             if (module == null) {
                 throw new SAXException("Input stream is not a Dependency-Check report file.");
             }
@@ -114,7 +145,7 @@ public class ReportParser extends AbstractAnnotationParser {
      * @return a maven module of the annotations API
      */
     private Collection<FileAnnotation> convert(final Analysis collection, final String moduleName) {
-        ArrayList<FileAnnotation> annotations = new ArrayList<FileAnnotation>();
+        final ArrayList<FileAnnotation> annotations = new ArrayList<FileAnnotation>();
 
         for (Dependency dependency : collection.getDependencies()) {
             for (Vulnerability vulnerability : dependency.getVulnerabilities()) {
@@ -124,14 +155,15 @@ public class ReportParser extends AbstractAnnotationParser {
                 // the value of severity.
                 Priority priority;
 
-                if (vulnerability.getCvssScore() >= 7.0)
+                if (vulnerability.getCvssScore() >= 7.0) {
                     priority = Priority.HIGH;
-                else if (vulnerability.getCvssScore() < 4.0)
+                } else if (vulnerability.getCvssScore() < 4.0) {
                     priority = Priority.LOW;
-                else
+                } else {
                     priority = Priority.NORMAL;
+                }
 
-                Warning warning = new Warning(priority, vulnerability);
+                final Warning warning = new Warning(priority, vulnerability);
                 warning.setModuleName(moduleName);
                 warning.setFileName(dependency.getFilePath());
                 //bug.setColumnPosition(warning.getBegincolumn(), warning.getEndcolumn());
