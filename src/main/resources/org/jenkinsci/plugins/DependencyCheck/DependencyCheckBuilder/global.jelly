@@ -42,6 +42,10 @@ limitations under the License.
 
             </f:entry>
 
+            <f:entry title="${%nvd.proxy.bypass}" description="" help="/plugin/dependency-check-jenkins-plugin/help-nvdproxybypass.html">
+                <f:checkbox id="nvd.proxy.bypass" name="isNvdProxyBypassed" checked="${instance.isNvdProxyBypassed}"/>
+            </f:entry>
+
             <f:entry title="${%mirror.cve.modified.1.2.url}" field="cveUrl12Modified"
                     help="/plugin/dependency-check-jenkins-plugin/help-datamirror-cve-modified-1.2-url.html">
                 <f:textbox id="mirror.cve.modified.1.2.url"/>
@@ -67,13 +71,29 @@ limitations under the License.
                 <f:textbox id="mono.path"/>
             </f:entry>
 
+            <f:entry title="${%quickquery.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-quickquery-timestamp.html">
+                <f:checkbox id="quickquery.enabled" name="isQuickQueryTimestampEnabled" checked="${instance.isQuickQueryTimestampEnabled}"/>
+            </f:entry>
+
             <f:advanced title="Analyzers">
                 <f:entry title="${%jar.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-jar-analyzer-enabled.html">
                     <f:checkbox id="jar.enabled" name="isJarAnalyzerEnabled" checked="${instance.isJarAnalyzerEnabled}"/>
                 </f:entry>
 
-                <f:entry title="${%javascript.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-javascript-analyzer-enabled.html">
-                    <f:checkbox id="javascript.enabled" name="isJavascriptAnalyzerEnabled" checked="${instance.isJavascriptAnalyzerEnabled}"/>
+                <f:entry title="${%nodejs.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-nodejs-analyzer-enabled.html">
+                    <f:checkbox id="nodejs.enabled" name="isNodeJsAnalyzerEnabled" checked="${instance.isNodeJsAnalyzerEnabled}"/>
+                </f:entry>
+
+                <f:entry title="${%composerlock.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-composerlock-analyzer-enabled.html">
+                    <f:checkbox id="composerlock.enabled" name="isComposerLockAnalyzerEnabled" checked="${instance.isComposerLockAnalyzerEnabled}"/>
+                </f:entry>
+
+                <f:entry title="${%python.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-python-analyzer-enabled.html">
+                    <f:checkbox id="python.enabled" name="isPythonAnalyzerEnabled" checked="${instance.isPythonAnalyzerEnabled}"/>
+                </f:entry>
+
+                <f:entry title="${%rubygem.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-rubygem-analyzer-enabled.html">
+                    <f:checkbox id="rubygem.enabled" name="isRubyGemAnalyzerEnabled" checked="${instance.isRubyGemAnalyzerEnabled}"/>
                 </f:entry>
 
                 <f:entry title="${%archive.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-archive-analyzer-enabled.html">
@@ -84,8 +104,24 @@ limitations under the License.
                     <f:checkbox id="assembly.enabled" name="isAssemblyAnalyzerEnabled" checked="${instance.isAssemblyAnalyzerEnabled}"/>
                 </f:entry>
 
+                <f:entry title="${%central.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-centralenabled.html">
+                    <f:checkbox id="central.enabled" name="isCentralAnalyzerEnabled" checked="${instance.isCentralAnalyzerEnabled}" onclick="toggleNexusFields(this);"/>
+                </f:entry>
+
                 <f:entry title="${%nuspec.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-nuspec-analyzer-enabled.html">
                     <f:checkbox id="nuspec.enabled" name="isNuspecAnalyzerEnabled" checked="${instance.isNuspecAnalyzerEnabled}"/>
+                </f:entry>
+
+                <f:entry title="${%autoconf.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-autoconf-analyzer-enabled.html">
+                    <f:checkbox id="autoconf.enabled" name="isAutoconfAnalyzerEnabled" checked="${instance.isAutoconfAnalyzerEnabled}"/>
+                </f:entry>
+
+                <f:entry title="${%cmake.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-cmake-analyzer-enabled.html">
+                    <f:checkbox id="cmake.enabled" name="isCmakeAnalyzerEnabled" checked="${instance.isCmakeAnalyzerEnabled}"/>
+                </f:entry>
+
+                <f:entry title="${%openssl.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-openssl-analyzer-enabled.html">
+                    <f:checkbox id="openssl.enabled" name="isOpensslAnalyzerEnabled" checked="${instance.isOpensslAnalyzerEnabled}"/>
                 </f:entry>
 
                 <f:entry title="${%nexus.enabled}" description="" help="/plugin/dependency-check-jenkins-plugin/help-nexusenabled.html">
@@ -108,6 +144,7 @@ limitations under the License.
     <script type="text/javascript">
         disableNistFields(${instance.dataMirroringType} == 0);
         disableNexusFields(${instance.isNexusAnalyzerEnabled});
+        disableCentralFields(${instance.isCentralAnalyzerEnabled});
 
         function disableNistFields(value) {
             document.getElementById('mirror.cve.modified.1.2.url').disabled=value;
@@ -135,6 +172,29 @@ limitations under the License.
                 document.getElementById('nexus.url').value='';
                 document.getElementById('nexus.url').disabled=true;
                 document.getElementById('nexus.proxy.bypass').disabled=true;
+            }
+            warnOnRepoDisabling();
+        }
+
+        function disableCentralFields(value) {
+            document.getElementById('central.url').disabled=!value;
+        }
+
+        function toggleCentralFields(checkbox) {
+            /* todo: Central URL is not currently configurable
+            if (checkbox.checked) {
+                document.getElementById('central.url').disabled=false;
+            } else {
+                document.getElementById('central.url').value='';
+                document.getElementById('central.url').disabled=true;
+            }
+            */
+            warnOnRepoDisabling();
+        }
+
+        function warnOnRepoDisabling() {
+            if (!document.getElementById('central.enabled').checked &amp;&amp; !document.getElementById('nexus.enabled').checked) {
+                alert('${%analyzer.disable.warning}');
             }
         }
 
