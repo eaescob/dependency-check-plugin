@@ -8,7 +8,7 @@ import org.apache.commons.httpclient.NameValuePair;
 import org.apache.commons.httpclient.methods.GetMethod;
 import org.apache.commons.httpclient.methods.PostMethod;
 import org.apache.http.client.ClientProtocolException;
-import org.jenkinsci.plugins.DependencyCheck.DependencyCheckThreadFixDescriptor;
+import org.jenkinsci.plugins.DependencyCheck.DependencyCheckDescriptor;
 import org.jenkinsci.plugins.DependencyCheck.parser.Warning;
 
 /**
@@ -18,9 +18,9 @@ import org.jenkinsci.plugins.DependencyCheck.parser.Warning;
  *
  */
 public class ThreadFixClient {
-	private DependencyCheckThreadFixDescriptor descriptor;
+	private DependencyCheckDescriptor descriptor;
 	
-	public ThreadFixClient(DependencyCheckThreadFixDescriptor descriptor) {
+	public ThreadFixClient(DependencyCheckDescriptor descriptor) {
 		this.descriptor = descriptor;
 	}
 	
@@ -30,7 +30,7 @@ public class ThreadFixClient {
 	 * @throws IOException 
 	 * @throws ClientProtocolException 
 	 */
-	public boolean checkConnection() throws ClientProtocolException, IOException {
+	public void checkConnection() throws ClientProtocolException, IOException, ThreadFixClientException {
 		HttpClient httpClient = new HttpClient();
 		String url = descriptor.getThreadFixUrl() + "/rest/teams" + "?apiKey=" + descriptor.getThreadFixAPIKey();
 		
@@ -40,7 +40,9 @@ public class ThreadFixClient {
 		int statusCode = httpClient.executeMethod(getRequest);
 		getRequest.releaseConnection();
 		
-		return statusCode == 200;
+		if (statusCode != 200) {
+			throw new ThreadFixClientException("Error connecting to ThreadFix: Response " + statusCode);
+		}
 	}
 	
 	/**
@@ -51,7 +53,7 @@ public class ThreadFixClient {
 	 * @throws IOException 
 	 * @throws HttpException 
 	 */
-	public boolean submitWarning(String applicationId, Warning warning) throws HttpException, IOException {
+	public void submitWarning(String applicationId, Warning warning) throws HttpException, IOException, ThreadFixClientException  {
 		HttpClient httpClient = new HttpClient();
 		String url = descriptor.getThreadFixUrl() + "/rest/applications/" + applicationId + "/addFinding?apiKey=" +
 				descriptor.getThreadFixAPIKey();
@@ -68,6 +70,8 @@ public class ThreadFixClient {
 		});
 		
 		int statusCode = httpClient.executeMethod(postMethod);
-		return statusCode >= 200 && statusCode <= 300;
+		if (statusCode >= 200 && statusCode <= 300) {
+			throw new ThreadFixClientException("Could not submit finding to ThreadFix: " + statusCode);
+		}
 	}
 }

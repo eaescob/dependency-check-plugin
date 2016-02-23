@@ -22,14 +22,20 @@ import hudson.matrix.MatrixBuild;
 import hudson.model.AbstractProject;
 import hudson.model.Action;
 import hudson.model.BuildListener;
+import hudson.model.Result;
 import hudson.model.Run;
 import hudson.plugins.analysis.core.BuildResult;
 import hudson.plugins.analysis.core.FilesParser;
 import hudson.plugins.analysis.core.HealthAwarePublisher;
 import hudson.plugins.analysis.core.ParserResult;
 import hudson.plugins.analysis.util.PluginLogger;
+import hudson.plugins.analysis.util.model.FileAnnotation;
+
 import org.apache.commons.lang.StringUtils;
 import org.jenkinsci.plugins.DependencyCheck.parser.ReportParser;
+import org.jenkinsci.plugins.DependencyCheck.parser.Warning;
+import org.jenkinsci.plugins.DependencyCheck.threadfix.ThreadFixClient;
+import org.jenkinsci.plugins.DependencyCheck.threadfix.ThreadFixClientException;
 import org.kohsuke.stapler.DataBoundConstructor;
 import org.kohsuke.stapler.DataBoundSetter;
 
@@ -49,6 +55,9 @@ public class DependencyCheckPublisher extends HealthAwarePublisher {
 
     // Ant file-set pattern of files to work with.
     private String pattern;
+    
+    // ThreadFix application ID of project
+    private String threadFixAppId;
 
     /**
      * Creates a new instance of <code>DependencyCheckPublisher</code>.
@@ -113,7 +122,9 @@ public class DependencyCheckPublisher extends HealthAwarePublisher {
      *            determines whether module names should be derived from Maven POM or Ant build files
      * @param pattern
      *            Ant file-set pattern to scan for PMD files
-     *
+     * @param threadFixAppId
+     * 			  ThreadFix Application ID
+     * 
      * @deprecated see {@link #DependencyCheckPublisher()}
      */
     // CHECKSTYLE:OFF
@@ -126,7 +137,7 @@ public class DependencyCheckPublisher extends HealthAwarePublisher {
                                     final String failedTotalAll, final String failedTotalHigh, final String failedTotalNormal, final String failedTotalLow,
                                     final String failedNewAll, final String failedNewHigh, final String failedNewNormal, final String failedNewLow,
                                     final boolean canRunOnFailed, final boolean usePreviousBuildAsReference, final boolean useStableBuildAsReference,
-                                    final boolean shouldDetectModules, final boolean canComputeNew, final String pattern) {
+                                    final boolean shouldDetectModules, final boolean canComputeNew, final String pattern, final String threadFixAppId) {
         super(healthy, unHealthy, thresholdLimit, defaultEncoding, useDeltaValues,
                 unstableTotalAll, unstableTotalHigh, unstableTotalNormal, unstableTotalLow,
                 unstableNewAll, unstableNewHigh, unstableNewNormal, unstableNewLow,
@@ -135,6 +146,7 @@ public class DependencyCheckPublisher extends HealthAwarePublisher {
                 canRunOnFailed, usePreviousBuildAsReference, useStableBuildAsReference,
                 shouldDetectModules, canComputeNew, false, DependencyCheckPlugin.PLUGIN_NAME);
         this.pattern = pattern;
+        this.threadFixAppId = threadFixAppId;
     }
     // CHECKSTYLE:ON
 
@@ -165,12 +177,35 @@ public class DependencyCheckPublisher extends HealthAwarePublisher {
         this.pattern = pattern;
     }
 
-    @Override
+    /**
+     * Returns the ThreadFix Application ID for project
+     * 
+     * @return - ThreadFix app ID
+     */
+    public String getThreadFixAppId() {
+		return threadFixAppId;
+	}
+
+	/**
+	 * Sets the ThreadFix APP Id for project
+	 * 
+	 * @param threadFixAppId
+	 */
+    @DataBoundSetter
+	public void setThreadFixAppId(final String threadFixAppId) {
+		this.threadFixAppId = threadFixAppId;
+	}
+
+
+	@Override
     public Action getProjectAction(final AbstractProject<?, ?> project) {
         return new DependencyCheckProjectAction(project);
     }
 
-    @Override
+
+
+
+	@Override
     public BuildResult perform(final Run<?, ?> build, final FilePath workspace, final PluginLogger logger) throws InterruptedException, IOException {
         logger.log("Collecting Dependency-Check analysis files...");
 
@@ -183,6 +218,24 @@ public class DependencyCheckPublisher extends HealthAwarePublisher {
         DependencyCheckResult result = new DependencyCheckResult(build, getDefaultEncoding(), project, usePreviousBuildAsReference(), useOnlyStableBuildsAsReference());
         build.addAction(new DependencyCheckResultAction(build, this, result));
 
+        if (getThreadFixAppId() != null && getDescriptor().isUsingThreadFix()) {  
+        	ThreadFixClient threadFixClient = new ThreadFixClient(getDescriptor());
+            logger.log("Submitting result analysis to ThreadFix");
+            for(FileAnnotation annotation : result.getAnnotations()) {
+            	if (annotation instanceof Warning) {
+            		Warning w = (Warning) annotation;
+            		
+            		try {
+            			threadFixClient.submitWarning(threadFixAppId, w);
+            		} catch (ThreadFixClientException ex) {
+            			logger.log("Failed to send request to ThreadFix: " + ex);
+            			result.setResult(Result.UNSTABLE);
+            			break;
+            		}
+            			
+            	}
+            }
+        }
         return result;
     }
 
